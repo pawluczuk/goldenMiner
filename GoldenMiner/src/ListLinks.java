@@ -1,20 +1,25 @@
 import java.util.List;
 import java.io.*;
-import java.net.URL;
 import java.util.ArrayList;
 
 import org.jsoup.Jsoup;
-import org.jsoup.helper.Validate;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+
+
 public class ListLinks {
+	// map of public profiles on goldenline
 	public static final String URL = "http://www.goldenline.pl/profile/mapa/";
     public static void main(String[] args) throws IOException {
     	List<String> urlList = new ArrayList<String>();
-    	// linki do map dla kazdej litery
+    	// hyperlinks for maps for each letter in the alphabet
     	for(char c = 'a'; c <= 'z'; ++c) {
+    		
     		String singleChar= String.valueOf(c);
     		String webpage = URL + singleChar;
     		int count = numberOfPages(singleChar,webpage);
@@ -25,13 +30,12 @@ public class ListLinks {
             	    urlList.add(URL + singleChar + "/s/" + i);
         		}
     		}
-    		// jesli nie ma podstron, nie trzeba podawac /s/numerStrony
+    		// if there's only one page, we do not need to add /s/pageNo
     		else urlList.add(webpage);
+    		
     	}
-    	// debug
-    	print(urlList.toString());
     	
-    	//getProfileLinks
+    	// get profile hyperlinsk on each page
     	for (String hyperlink : urlList) {
             getProfileLinks(hyperlink);
         }
@@ -75,19 +79,31 @@ public class ListLinks {
 		}
         Elements links = doc.select("div#people a[href]");
 
-        print("\nLinks: (%d)", links.size());
-        for (Element link : links) {
-            print(" * a: <%s>  (%s)", link.attr("abs:href"), trim(link.text(), 35));
-        }
-    }
-    private static void print(String msg, Object... args) {
-        System.out.println(String.format(msg, args));
+        
+           try {
+        	   Class.forName("org.sqlite.JDBC");
+ 			  
+
+		        Connection conn2 = DriverManager.getConnection("jdbc:sqlite:goldenMiner.db");
+		        conn2.setAutoCommit(false);
+		       
+		        PreparedStatement prepStmt2 = conn2
+		                .prepareStatement("INSERT INTO hyperlinks values (?, ?);");
+		        for (Element link : links) {
+		        	prepStmt2.setString(1, link.attr("abs:href"));
+		            prepStmt2.setString(2, "");
+		            prepStmt2.addBatch();
+		        }
+		        prepStmt2.executeBatch();
+		        conn2.commit();
+		        
+		        conn2.close();
+           
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        
     }
 
-    private static String trim(String s, int width) {
-        if (s.length() > width)
-            return s.substring(0, width-1) + ".";
-        else
-            return s;
-    }
 }
